@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          origem: string | null
+          plan: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          origem?: string | null
+          plan: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          origem?: string | null
+          plan?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resumes: {
         Row: {
           created_at: string | null
@@ -49,18 +84,27 @@ export type Database = {
           email: string
           id: string
           is_paid: boolean | null
+          plan: string | null
+          renew_at: string | null
+          usage_count: number | null
         }
         Insert: {
           created_at?: string | null
           email: string
           id?: string
           is_paid?: boolean | null
+          plan?: string | null
+          renew_at?: string | null
+          usage_count?: number | null
         }
         Update: {
           created_at?: string | null
           email?: string
           id?: string
           is_paid?: boolean | null
+          plan?: string | null
+          renew_at?: string | null
+          usage_count?: number | null
         }
         Relationships: []
       }
