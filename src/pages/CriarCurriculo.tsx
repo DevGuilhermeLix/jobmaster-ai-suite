@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, Trash2 } from "lucide-react";
+import { FileText, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Experience {
   id: string;
@@ -25,6 +27,10 @@ const CriarCurriculo = () => {
   const [experiencias, setExperiencias] = useState<Experience[]>([
     { id: "1", cargo: "", empresa: "", periodo: "", descricao: "" }
   ]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewContent, setPreviewContent] = useState("");
 
   const addExperiencia = () => {
     const newExp: Experience = {
@@ -49,7 +55,33 @@ const CriarCurriculo = () => {
     ));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePreview = async () => {
+    if (!nome || !email || !telefone) {
+      toast.error("Preencha os campos obrigatórios");
+      return;
+    }
+
+    setIsPreviewing(true);
+    try {
+      const formData = { nome, email, telefone, resumo, experiencias, habilidades };
+      
+      const { data, error } = await supabase.functions.invoke('preview-resume', {
+        body: { data: formData }
+      });
+
+      if (error) throw error;
+      
+      setPreviewContent(data.preview);
+      setPreviewOpen(true);
+    } catch (error) {
+      console.error('Error previewing resume:', error);
+      toast.error("Erro ao gerar pré-visualização");
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!nome || !email || !telefone) {
@@ -57,8 +89,31 @@ const CriarCurriculo = () => {
       return;
     }
 
-    toast.success("Currículo gerado com sucesso!");
-    // TODO: Implement actual CV generation logic
+    setIsGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Você precisa estar logado para gerar um currículo");
+        return;
+      }
+
+      const formData = { nome, email, telefone, resumo, experiencias, habilidades };
+      
+      const { data, error } = await supabase.functions.invoke('generate-resume', {
+        body: { data: formData }
+      });
+
+      if (error) throw error;
+
+      toast.success("Currículo gerado com sucesso!");
+      console.log('Resume saved:', data);
+    } catch (error) {
+      console.error('Error generating resume:', error);
+      toast.error("Erro ao gerar currículo");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -232,17 +287,53 @@ const CriarCurriculo = () => {
 
             {/* Submit Button */}
             <div className="flex gap-4">
-              <Button type="submit" size="lg" className="flex-1">
-                <FileText className="h-5 w-5 mr-2" />
-                Gerar Currículo
+              <Button type="submit" size="lg" className="flex-1" disabled={isGenerating}>
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-5 w-5 mr-2" />
+                    Gerar Currículo
+                  </>
+                )}
               </Button>
-              <Button type="button" variant="outline" size="lg">
-                Pré-visualizar
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="lg"
+                onClick={handlePreview}
+                disabled={isPreviewing}
+              >
+                {isPreviewing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  'Pré-visualizar'
+                )}
               </Button>
             </div>
           </form>
         </div>
       </main>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pré-visualização do Currículo</DialogTitle>
+            <DialogDescription>
+              Esta é uma visualização do seu currículo gerado por IA
+            </DialogDescription>
+          </DialogHeader>
+          <div className="whitespace-pre-wrap text-sm">
+            {previewContent}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
