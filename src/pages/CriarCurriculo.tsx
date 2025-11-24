@@ -31,6 +31,9 @@ const CriarCurriculo = () => {
   ]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<string>("");
+  const [htmlPreview, setHtmlPreview] = useState<string>("");
+  const [isGeneratingHtml, setIsGeneratingHtml] = useState(false);
+  const [isImproving, setIsImproving] = useState(false);
 
   const addExperiencia = () => {
     const newExp: Experience = {
@@ -55,6 +58,50 @@ const CriarCurriculo = () => {
     ));
   };
 
+  const generateHtmlResume = async (improve = false) => {
+    if (!nome || !email || !telefone) {
+      toast.error("Preencha os campos obrigatórios");
+      return;
+    }
+
+    const cleanData = buildResumeJSON({
+      nome,
+      email,
+      telefone,
+      resumo,
+      habilidades,
+      experiencias,
+      area
+    });
+
+    const loadingToast = toast.loading(improve ? "Melhorando currículo com IA..." : "Gerando currículo com IA...");
+    
+    if (improve) {
+      setIsImproving(true);
+    } else {
+      setIsGeneratingHtml(true);
+    }
+
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.functions.invoke('generate-resume-html', {
+        body: { data: cleanData, improve }
+      });
+
+      if (error) throw error;
+
+      setHtmlPreview(data.html);
+      setPreviewOpen(true);
+      toast.success(improve ? "Currículo melhorado com sucesso!" : "Currículo gerado com sucesso!", { id: loadingToast });
+    } catch (error) {
+      console.error('Error generating HTML resume:', error);
+      toast.error("Erro ao gerar currículo. Tente novamente.", { id: loadingToast });
+    } finally {
+      setIsGeneratingHtml(false);
+      setIsImproving(false);
+    }
+  };
+
   const handlePreview = () => {
     if (!nome || !email || !telefone) {
       toast.error("Preencha os campos obrigatórios");
@@ -72,30 +119,16 @@ const CriarCurriculo = () => {
     });
 
     setPreviewData(JSON.stringify(cleanData, null, 2));
-    setPreviewOpen(true);
-    toast.success("Dados estruturados com sucesso!");
+    toast.success("Dados estruturados!");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!nome || !email || !telefone) {
-      toast.error("Preencha os campos obrigatórios");
-      return;
-    }
+    generateHtmlResume(false);
+  };
 
-    const cleanData = buildResumeJSON({
-      nome,
-      email,
-      telefone,
-      resumo,
-      habilidades,
-      experiencias,
-      area
-    });
-
-    console.log("Resume Data Ready for AI:", cleanData);
-    toast.success("Dados preparados! (Geração de PDF será implementada na ETAPA 3)");
+  const handleImprove = () => {
+    generateHtmlResume(true);
   };
 
   const getAreaIcon = (areaName: ResumeArea) => {
@@ -334,41 +367,103 @@ const CriarCurriculo = () => {
                 type="submit" 
                 size="lg" 
                 className="flex-1 h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                disabled={isGeneratingHtml}
               >
-                <FileText className="h-5 w-5 mr-2" />
-                Preparar Currículo
+                {isGeneratingHtml ? (
+                  <>
+                    <div className="h-5 w-5 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Gerando HTML...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-5 w-5 mr-2" />
+                    Gerar Currículo com IA
+                  </>
+                )}
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 size="lg"
-                className="flex-1 h-14 text-lg font-semibold"
+                className="sm:w-auto h-14 text-base font-semibold"
                 onClick={handlePreview}
               >
-                Ver JSON Estruturado
+                Ver JSON
               </Button>
             </div>
             
             <p className="text-center text-sm text-muted-foreground">
-              * ETAPA 1: Estrutura e templates configurados. Geração de PDF será implementada na ETAPA 3.
+              * ETAPA 2: Geração automática de HTML via IA. PDF e histórico serão implementados nas próximas etapas.
             </p>
           </form>
         </div>
       </main>
 
+      {/* HTML Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">Dados Estruturados do Currículo</DialogTitle>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="space-y-3 pb-4 border-b">
+            <DialogTitle className="text-2xl font-bold">
+              {htmlPreview ? "Pré-visualização do Currículo" : "Dados Estruturados"}
+            </DialogTitle>
             <DialogDescription className="text-base">
-              JSON limpo pronto para ser enviado à IA (ETAPA 2) e backend (ETAPA 3)
+              {htmlPreview 
+                ? "Preview HTML gerado pela IA - Use os botões abaixo para melhorar ou gerar PDF"
+                : "JSON estruturado pronto para processamento"
+              }
             </DialogDescription>
           </DialogHeader>
-          <div className="bg-muted p-6 rounded-lg">
-            <pre className="text-sm font-mono whitespace-pre-wrap break-words">
-              {previewData}
-            </pre>
-          </div>
+
+          {htmlPreview ? (
+            <>
+              <div className="flex-1 overflow-y-auto py-4">
+                <div 
+                  className="bg-white rounded-lg shadow-inner p-8 min-h-[600px]"
+                  dangerouslySetInnerHTML={{ __html: htmlPreview }}
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4 border-t">
+                <Button
+                  onClick={handleImprove}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 h-12"
+                  disabled={isImproving}
+                >
+                  {isImproving ? (
+                    <>
+                      <div className="h-5 w-5 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Melhorando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Melhorar com IA
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="lg"
+                  className="flex-1 h-12"
+                  disabled
+                >
+                  <FileText className="h-5 w-5 mr-2" />
+                  Gerar PDF (ETAPA 3)
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+              <div className="bg-muted p-6 rounded-lg">
+                <pre className="text-sm font-mono whitespace-pre-wrap break-words">
+                  {previewData}
+                </pre>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
