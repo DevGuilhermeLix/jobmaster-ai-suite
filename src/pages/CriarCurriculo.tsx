@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, Trash2, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, Plus, Trash2, Briefcase, Code, Heart, Building2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { areaOptions, areaDescriptions, buildResumeJSON, type ResumeArea } from "@/lib/resumeTemplates";
 
 interface Experience {
   id: string;
@@ -24,13 +25,12 @@ const CriarCurriculo = () => {
   const [telefone, setTelefone] = useState("");
   const [resumo, setResumo] = useState("");
   const [habilidades, setHabilidades] = useState("");
+  const [area, setArea] = useState<ResumeArea>("Tecnologia");
   const [experiencias, setExperiencias] = useState<Experience[]>([
     { id: "1", cargo: "", empresa: "", periodo: "", descricao: "" }
   ]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewContent, setPreviewContent] = useState("");
+  const [previewData, setPreviewData] = useState<string>("");
 
   const addExperiencia = () => {
     const newExp: Experience = {
@@ -55,33 +55,28 @@ const CriarCurriculo = () => {
     ));
   };
 
-  const handlePreview = async () => {
+  const handlePreview = () => {
     if (!nome || !email || !telefone) {
       toast.error("Preencha os campos obrigatórios");
       return;
     }
 
-    setIsPreviewing(true);
-    try {
-      const formData = { nome, email, telefone, resumo, experiencias, habilidades };
-      
-      const { data, error } = await supabase.functions.invoke('preview-resume', {
-        body: { data: formData }
-      });
+    const cleanData = buildResumeJSON({
+      nome,
+      email,
+      telefone,
+      resumo,
+      habilidades,
+      experiencias,
+      area
+    });
 
-      if (error) throw error;
-      
-      setPreviewContent(data.preview);
-      setPreviewOpen(true);
-    } catch (error) {
-      console.error('Error previewing resume:', error);
-      toast.error("Erro ao gerar pré-visualização");
-    } finally {
-      setIsPreviewing(false);
-    }
+    setPreviewData(JSON.stringify(cleanData, null, 2));
+    setPreviewOpen(true);
+    toast.success("Dados estruturados com sucesso!");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!nome || !email || !telefone) {
@@ -89,30 +84,28 @@ const CriarCurriculo = () => {
       return;
     }
 
-    setIsGenerating(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error("Você precisa estar logado para gerar um currículo");
-        return;
-      }
+    const cleanData = buildResumeJSON({
+      nome,
+      email,
+      telefone,
+      resumo,
+      habilidades,
+      experiencias,
+      area
+    });
 
-      const formData = { nome, email, telefone, resumo, experiencias, habilidades };
-      
-      const { data, error } = await supabase.functions.invoke('generate-resume', {
-        body: { data: formData }
-      });
+    console.log("Resume Data Ready for AI:", cleanData);
+    toast.success("Dados preparados! (Geração de PDF será implementada na ETAPA 3)");
+  };
 
-      if (error) throw error;
-
-      toast.success("Currículo gerado com sucesso!");
-      console.log('Resume saved:', data);
-    } catch (error) {
-      console.error('Error generating resume:', error);
-      toast.error("Erro ao gerar currículo");
-    } finally {
-      setIsGenerating(false);
+  const getAreaIcon = (areaName: ResumeArea) => {
+    switch (areaName) {
+      case "Tecnologia":
+        return <Code className="h-4 w-4" />;
+      case "Saúde":
+        return <Heart className="h-4 w-4" />;
+      case "Administrativo":
+        return <Building2 className="h-4 w-4" />;
     }
   };
 
@@ -122,54 +115,97 @@ const CriarCurriculo = () => {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-              <FileText className="h-8 w-8 text-primary" />
+          <div className="mb-12 text-center space-y-4">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 mb-6 shadow-lg">
+              <FileText className="h-10 w-10 text-primary" />
             </div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">Criar Currículo Profissional</h1>
-            <p className="text-muted-foreground text-lg">
-              Preencha suas informações e crie um currículo impactante
+            <h1 className="text-5xl font-bold text-foreground mb-3 tracking-tight">
+              Criar Currículo Profissional
+            </h1>
+            <p className="text-muted-foreground text-xl max-w-2xl mx-auto leading-relaxed">
+              Sistema inteligente de geração de currículos com templates por área profissional
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Informações Básicas */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Informações Básicas</CardTitle>
-                <CardDescription>Dados pessoais e de contato</CardDescription>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Área do Currículo */}
+            <Card className="border-2 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-2xl">
+                  <Briefcase className="h-6 w-6 text-primary" />
+                  Área Profissional
+                </CardTitle>
+                <CardDescription className="text-base">
+                  Selecione a área para aplicar o template adequado
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CardContent>
+                <div className="space-y-3">
+                  <Label htmlFor="area" className="text-base font-semibold">Escolha sua área *</Label>
+                  <Select value={area} onValueChange={(value) => setArea(value as ResumeArea)}>
+                    <SelectTrigger id="area" className="h-14 text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {areaOptions.map((option) => (
+                        <SelectItem key={option} value={option} className="py-3">
+                          <div className="flex items-center gap-3">
+                            {getAreaIcon(option)}
+                            <div className="text-left">
+                              <div className="font-semibold">{option}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {areaDescriptions[option]}
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Informações Básicas */}
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl">Informações Básicas</CardTitle>
+                <CardDescription className="text-base">Dados pessoais e de contato</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label htmlFor="nome">Nome Completo *</Label>
+                    <Label htmlFor="nome" className="text-base font-medium">Nome Completo *</Label>
                     <Input
                       id="nome"
                       value={nome}
                       onChange={(e) => setNome(e.target.value)}
                       placeholder="João Silva"
+                      className="h-12 text-base"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">E-mail *</Label>
+                    <Label htmlFor="email" className="text-base font-medium">E-mail *</Label>
                     <Input
                       id="email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="joao@exemplo.com"
+                      className="h-12 text-base"
                       required
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone *</Label>
+                  <Label htmlFor="telefone" className="text-base font-medium">Telefone *</Label>
                   <Input
                     id="telefone"
                     value={telefone}
                     onChange={(e) => setTelefone(e.target.value)}
                     placeholder="(11) 99999-9999"
+                    className="h-12 text-base"
                     required
                   />
                 </div>
@@ -177,81 +213,86 @@ const CriarCurriculo = () => {
             </Card>
 
             {/* Resumo Profissional */}
-            <Card>
+            <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>Resumo Profissional</CardTitle>
-                <CardDescription>Descreva seu perfil em poucas linhas</CardDescription>
+                <CardTitle className="text-xl">Resumo Profissional</CardTitle>
+                <CardDescription className="text-base">
+                  Descreva seu perfil em poucas linhas (a IA irá otimizar depois)
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={resumo}
                   onChange={(e) => setResumo(e.target.value)}
                   placeholder="Ex: Profissional com 5 anos de experiência em desenvolvimento web..."
-                  className="min-h-[120px]"
+                  className="min-h-[140px] text-base"
                 />
               </CardContent>
             </Card>
 
             {/* Experiências */}
-            <Card>
+            <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>Experiência Profissional</CardTitle>
-                <CardDescription>Adicione suas experiências anteriores</CardDescription>
+                <CardTitle className="text-xl">Experiência Profissional</CardTitle>
+                <CardDescription className="text-base">Adicione suas experiências anteriores</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {experiencias.map((exp, index) => (
-                  <div key={exp.id} className="space-y-4 p-4 border border-border rounded-lg relative">
+                  <div key={exp.id} className="space-y-4 p-6 border-2 border-border rounded-xl relative bg-card shadow-sm hover:shadow-md transition-shadow">
                     {experiencias.length > 1 && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute top-2 right-2"
+                        className="absolute top-3 right-3 hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => removeExperiencia(exp.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                     
-                    <div className="font-semibold text-sm text-muted-foreground">
+                    <div className="font-bold text-base text-primary">
                       Experiência {index + 1}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div className="space-y-2">
-                        <Label>Cargo</Label>
+                        <Label className="text-base font-medium">Cargo</Label>
                         <Input
                           value={exp.cargo}
                           onChange={(e) => updateExperiencia(exp.id, "cargo", e.target.value)}
                           placeholder="Desenvolvedor Full Stack"
+                          className="h-11 text-base"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Empresa</Label>
+                        <Label className="text-base font-medium">Empresa</Label>
                         <Input
                           value={exp.empresa}
                           onChange={(e) => updateExperiencia(exp.id, "empresa", e.target.value)}
                           placeholder="Tech Company LTDA"
+                          className="h-11 text-base"
                         />
                       </div>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label>Período</Label>
+                      <Label className="text-base font-medium">Período</Label>
                       <Input
                         value={exp.periodo}
                         onChange={(e) => updateExperiencia(exp.id, "periodo", e.target.value)}
                         placeholder="Jan 2020 - Dez 2023"
+                        className="h-11 text-base"
                       />
                     </div>
                     
                     <div className="space-y-2">
-                      <Label>Descrição</Label>
+                      <Label className="text-base font-medium">Descrição</Label>
                       <Textarea
                         value={exp.descricao}
                         onChange={(e) => updateExperiencia(exp.id, "descricao", e.target.value)}
                         placeholder="Descreva suas responsabilidades e conquistas..."
-                        className="min-h-[80px]"
+                        className="min-h-[100px] text-base"
                       />
                     </div>
                   </div>
@@ -260,77 +301,73 @@ const CriarCurriculo = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="w-full h-12 text-base font-semibold hover:bg-primary/5"
                   onClick={addExperiencia}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-5 w-5 mr-2" />
                   Adicionar Experiência
                 </Button>
               </CardContent>
             </Card>
 
             {/* Habilidades */}
-            <Card>
+            <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>Habilidades</CardTitle>
-                <CardDescription>Liste suas principais habilidades (separadas por vírgula)</CardDescription>
+                <CardTitle className="text-xl">Habilidades</CardTitle>
+                <CardDescription className="text-base">
+                  Liste suas principais habilidades (separadas por vírgula)
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={habilidades}
                   onChange={(e) => setHabilidades(e.target.value)}
                   placeholder="JavaScript, React, Node.js, SQL, Git"
-                  className="min-h-[100px]"
+                  className="min-h-[120px] text-base"
                 />
               </CardContent>
             </Card>
 
-            {/* Submit Button */}
-            <div className="flex gap-4">
-              <Button type="submit" size="lg" className="flex-1" disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Gerando...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-5 w-5 mr-2" />
-                    Gerar Currículo
-                  </>
-                )}
+            {/* Submit Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <Button 
+                type="submit" 
+                size="lg" 
+                className="flex-1 h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                Preparar Currículo
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 size="lg"
+                className="flex-1 h-14 text-lg font-semibold"
                 onClick={handlePreview}
-                disabled={isPreviewing}
               >
-                {isPreviewing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Carregando...
-                  </>
-                ) : (
-                  'Pré-visualizar'
-                )}
+                Ver JSON Estruturado
               </Button>
             </div>
+            
+            <p className="text-center text-sm text-muted-foreground">
+              * ETAPA 1: Estrutura e templates configurados. Geração de PDF será implementada na ETAPA 3.
+            </p>
           </form>
         </div>
       </main>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Pré-visualização do Currículo</DialogTitle>
-            <DialogDescription>
-              Esta é uma visualização do seu currículo gerado por IA
+            <DialogTitle className="text-2xl">Dados Estruturados do Currículo</DialogTitle>
+            <DialogDescription className="text-base">
+              JSON limpo pronto para ser enviado à IA (ETAPA 2) e backend (ETAPA 3)
             </DialogDescription>
           </DialogHeader>
-          <div className="whitespace-pre-wrap text-sm">
-            {previewContent}
+          <div className="bg-muted p-6 rounded-lg">
+            <pre className="text-sm font-mono whitespace-pre-wrap break-words">
+              {previewData}
+            </pre>
           </div>
         </DialogContent>
       </Dialog>
