@@ -34,6 +34,8 @@ const CriarCurriculo = () => {
   const [htmlPreview, setHtmlPreview] = useState<string>("");
   const [isGeneratingHtml, setIsGeneratingHtml] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string>("");
 
   const addExperiencia = () => {
     const newExp: Experience = {
@@ -56,6 +58,49 @@ const CriarCurriculo = () => {
     setExperiencias(experiencias.map(exp =>
       exp.id === id ? { ...exp, [field]: value } : exp
     ));
+  };
+
+  const generatePdf = async () => {
+    if (!htmlPreview) {
+      toast.error("Gere o currículo primeiro");
+      return;
+    }
+
+    const loadingToast = toast.loading("Gerando PDF profissional...");
+    setIsGeneratingPdf(true);
+
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Você precisa estar logado para gerar PDF", { id: loadingToast });
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-pdf', {
+        body: { html: htmlPreview, area }
+      });
+
+      if (error) throw error;
+
+      setPdfUrl(data.pdfUrl);
+      toast.success("PDF gerado com sucesso!", { id: loadingToast });
+      
+      // Auto-download
+      const link = document.createElement('a');
+      link.href = data.pdfUrl;
+      link.download = `curriculo-${area.toLowerCase()}-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error("Erro ao gerar PDF. Tente novamente.", { id: loadingToast });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const generateHtmlResume = async (improve = false) => {
@@ -429,7 +474,7 @@ const CriarCurriculo = () => {
                   variant="outline"
                   size="lg"
                   className="flex-1 h-12"
-                  disabled={isImproving}
+                  disabled={isImproving || isGeneratingPdf}
                 >
                   {isImproving ? (
                     <>
@@ -446,14 +491,61 @@ const CriarCurriculo = () => {
                   )}
                 </Button>
                 <Button
+                  onClick={generatePdf}
                   size="lg"
                   className="flex-1 h-12"
-                  disabled
+                  disabled={isGeneratingPdf || isImproving}
                 >
-                  <FileText className="h-5 w-5 mr-2" />
-                  Gerar PDF (ETAPA 3)
+                  {isGeneratingPdf ? (
+                    <>
+                      <div className="h-5 w-5 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Gerando PDF...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-5 w-5 mr-2" />
+                      Gerar PDF
+                    </>
+                  )}
                 </Button>
               </div>
+              
+              {pdfUrl && (
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100 mb-3">
+                    ✓ PDF gerado com sucesso!
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => window.open(pdfUrl, '_blank')}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Ver PDF
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = pdfUrl;
+                        link.download = `curriculo-${area.toLowerCase()}-${Date.now()}.pdf`;
+                        link.click();
+                      }}
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex-1 overflow-y-auto">
