@@ -8,6 +8,7 @@ const Navbar = () => {
   const navItems = [
     { path: "/", label: "Home" },
     { path: "/criar-curriculo", label: "Criar Currículo" },
+    { path: "/historico", label: "Histórico" },
     { path: "/analisar-vaga", label: "Analisar Vaga" },
     { path: "/entrevista", label: "Entrevista" },
     { path: "/ranking", label: "Ranking" },

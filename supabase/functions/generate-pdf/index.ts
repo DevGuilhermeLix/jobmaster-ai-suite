@@ -243,6 +243,21 @@ serve(async (req) => {
 
     console.log('PDF generated and uploaded successfully');
 
+    // Save resume record to database
+    const { error: dbError } = await supabaseAdmin
+      .from('resumes')
+      .insert({
+        user_id: user.id,
+        area: area,
+        pdf_url: urlData.publicUrl,
+        html_preview: html,
+        resume_json: {}
+      });
+
+    if (dbError) {
+      console.error('Error saving resume to database:', dbError);
+    }
+
     return new Response(
       JSON.stringify({
         pdfUrl: urlData.publicUrl,

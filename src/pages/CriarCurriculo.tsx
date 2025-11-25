@@ -515,7 +515,7 @@ const CriarCurriculo = () => {
                   <p className="text-sm font-medium text-green-900 dark:text-green-100 mb-3">
                     ✓ PDF gerado com sucesso!
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={() => window.open(pdfUrl, '_blank')}
                       variant="outline"
@@ -542,6 +542,17 @@ const CriarCurriculo = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
                       Download
+                    </Button>
+                    <Button
+                      onClick={() => window.location.href = '/historico'}
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Ver Histórico
                     </Button>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import AnalisarVaga from "./pages/AnalisarVaga";
 import Entrevista from "./pages/Entrevista";
 import Ranking from "./pages/Ranking";
 import Conta from "./pages/Conta";
+import Historico from "./pages/Historico";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/entrevista" element={<Entrevista />} />
           <Route path="/ranking" element={<Ranking />} />
           <Route path="/conta" element={<Conta />} />
+          <Route path="/historico" element={<Historico />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

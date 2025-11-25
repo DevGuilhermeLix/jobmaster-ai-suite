@@ -51,20 +51,29 @@ export type Database = {
       }
       resumes: {
         Row: {
+          area: string | null
           created_at: string | null
+          html_preview: string | null
           id: string
+          pdf_url: string | null
           resume_json: Json
           user_id: string | null
         }
         Insert: {
+          area?: string | null
           created_at?: string | null
+          html_preview?: string | null
           id?: string
+          pdf_url?: string | null
           resume_json: Json
           user_id?: string | null
         }
         Update: {
+          area?: string | null
           created_at?: string | null
+          html_preview?: string | null
           id?: string
+          pdf_url?: string | null
           resume_json?: Json
           user_id?: string | null
         }
